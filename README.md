@@ -21,6 +21,7 @@ The service works with monthly subscriptions. Dates are passed in `MM-YYYY` form
 - Database migrations with goose
 - Request validation for UUID, price and date format
 - Unit tests for date parsing and request validation
+- Swagger API documentation
 - Local development with Docker Compose
 - Makefile commands for common development tasks
 
@@ -37,6 +38,8 @@ The service works with monthly subscriptions. Dates are passed in `MM-YYYY` form
 | [goose](https://github.com/pressly/goose) | Database migrations |
 | [godotenv](https://github.com/joho/godotenv) | Loading local `.env` files |
 | [google/uuid](https://github.com/google/uuid) | UUID parsing and validation |
+| [swaggo/swag](https://github.com/swaggo/swag) | Swagger documentation generation |
+| [gin-swagger](https://github.com/swaggo/gin-swagger) | Swagger UI for Gin |
 | [Docker Compose](https://docs.docker.com/compose/) | Local PostgreSQL environment |
 | [Make](https://www.gnu.org/software/make/) | Common development commands |
 | [golangci-lint](https://golangci-lint.run/) | Go linter |
@@ -63,6 +66,24 @@ Example response:
 {
   "status": "pong"
 }
+```
+
+---
+
+### Swagger
+
+- `GET /swagger/index.html` - interactive Swagger API documentation
+
+Open in browser:
+
+```text
+http://localhost:8080/swagger/index.html
+```
+
+Generate Swagger docs:
+
+```bash
+make swagger
 ```
 
 ---
@@ -364,6 +385,7 @@ Subscription not found:
 - Docker Compose
 - `make`
 - `goose`
+- `swag`
 - `golangci-lint`, optional for linting
 - `air`, optional for hot reload with `make dev`
 
@@ -371,6 +393,12 @@ Install goose:
 
 ```bash
 go install github.com/pressly/goose/v3/cmd/goose@latest
+```
+
+Install swag:
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
 ```
 
 Install Air, optional:
@@ -485,6 +513,28 @@ Rollback the last migration manually:
 
 ```bash
 goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable" down
+```
+
+---
+
+## Swagger
+
+Generate Swagger documentation:
+
+```bash
+make swagger
+```
+
+Run the application:
+
+```bash
+make check
+```
+
+Open Swagger UI:
+
+```text
+http://localhost:8080/swagger/index.html
 ```
 
 ---
@@ -637,6 +687,16 @@ goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subs
 air -c .air.toml
 ```
 
+```bash
+make swagger
+```
+
+Runs:
+
+```text
+swag init -g ./cmd/subscription-aggregator/main.go -o ./docs --parseInternal
+```
+
 ---
 
 
@@ -663,4 +723,3 @@ Important constraints:
 - `start_date` is required
 - `end_date` can be empty
 - `end_date` must be greater than or equal to `start_date`
-

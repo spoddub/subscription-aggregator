@@ -14,36 +14,61 @@ import (
 
 const (
 	invalidIDError          string = "invalid id"
+	invalidUserIDError      string = "invalid user_id"
 	invalidRequestBodyError string = "invalid request body"
 )
 
 type CreateSubscriptionRequest struct {
-	ServiceName string `json:"service_name"`
-	Price       int    `json:"price"`
-	UserID      string `json:"user_id"`
-	StartDate   string `json:"start_date"`
-	EndDate     string `json:"end_date,omitempty"`
+	ServiceName string `json:"service_name" example:"Yandex Plus"`
+	Price       int    `json:"price" example:"400"`
+	UserID      string `json:"user_id" example:"60601fee-2bf1-4721-ae6f-7636e79a0cba"`
+	StartDate   string `json:"start_date" example:"07-2025"`
+	EndDate     string `json:"end_date,omitempty" example:"12-2025"`
 }
 
 type UpdateSubscriptionRequest struct {
-	ServiceName string `json:"service_name"`
-	Price       int    `json:"price"`
-	UserID      string `json:"user_id"`
-	StartDate   string `json:"start_date"`
-	EndDate     string `json:"end_date,omitempty"`
+	ServiceName string `json:"service_name" example:"Yandex Plus"`
+	Price       int    `json:"price" example:"500"`
+	UserID      string `json:"user_id" example:"60601fee-2bf1-4721-ae6f-7636e79a0cba"`
+	StartDate   string `json:"start_date" example:"07-2025"`
+	EndDate     string `json:"end_date,omitempty" example:"12-2025"`
 }
 
 type SubscriptionResponse struct {
-	ID          int64     `json:"id"`
-	ServiceName string    `json:"service_name"`
-	Price       int       `json:"price"`
-	UserID      uuid.UUID `json:"user_id"`
-	StartDate   string    `json:"start_date"`
-	EndDate     *string   `json:"end_date,omitempty"`
+	ID          int64     `json:"id" example:"1"`
+	ServiceName string    `json:"service_name" example:"Yandex Plus"`
+	Price       int       `json:"price" example:"400"`
+	UserID      uuid.UUID `json:"user_id" example:"60601fee-2bf1-4721-ae6f-7636e79a0cba"`
+	StartDate   string    `json:"start_date" example:"07-2025"`
+	EndDate     *string   `json:"end_date,omitempty" example:"12-2025"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+type ListSubscriptionsResponse struct {
+	Subscriptions []SubscriptionResponse `json:"subscriptions"`
+}
+
+type TotalCostResponse struct {
+	From        string `json:"from" example:"07-2025"`
+	To          string `json:"to" example:"09-2025"`
+	UserID      string `json:"user_id" example:"60601fee-2bf1-4721-ae6f-7636e79a0cba"`
+	ServiceName string `json:"service_name" example:"Yandex Plus"`
+	Total       int64  `json:"total" example:"1200"`
+}
+
+type ErrorResponse struct {
+	Error string `json:"error" example:"invalid request body"`
+}
+
+// ListSubscriptions godoc
+// @Summary List subscriptions
+// @Description Returns all subscriptions.
+// @Tags subscriptions
+// @Produce json
+// @Success 200 {object} ListSubscriptionsResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/subscriptions [get]
 func (h *Handler) ListSubscriptions(c *gin.Context) {
 	subscriptions, err := h.repo.List(c.Request.Context())
 	if err != nil {
@@ -58,11 +83,22 @@ func (h *Handler) ListSubscriptions(c *gin.Context) {
 		response = append(response, toSubscriptionResponse(subscription))
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"subscriptions": response,
+	c.JSON(http.StatusOK, ListSubscriptionsResponse{
+		Subscriptions: response,
 	})
 }
 
+// CreateSubscription godoc
+// @Summary Create subscription
+// @Description Creates a new subscription record.
+// @Tags subscriptions
+// @Accept json
+// @Produce json
+// @Param request body CreateSubscriptionRequest true "Subscription payload"
+// @Success 201 {object} SubscriptionResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/subscriptions [post]
 func (h *Handler) CreateSubscription(c *gin.Context) {
 	var req CreateSubscriptionRequest
 
@@ -92,6 +128,17 @@ func (h *Handler) CreateSubscription(c *gin.Context) {
 	c.JSON(http.StatusCreated, toSubscriptionResponse(subscription))
 }
 
+// GetSubscriptionByID godoc
+// @Summary Get subscription by id
+// @Description Returns one subscription by id.
+// @Tags subscriptions
+// @Produce json
+// @Param id path int true "Subscription id"
+// @Success 200 {object} SubscriptionResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/subscriptions/{id} [get]
 func (h *Handler) GetSubscriptionByID(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
@@ -103,6 +150,13 @@ func (h *Handler) GetSubscriptionByID(c *gin.Context) {
 
 	subscription, err := h.repo.GetByID(c.Request.Context(), id)
 	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "subscription not found",
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to get subscription",
 		})
@@ -112,6 +166,19 @@ func (h *Handler) GetSubscriptionByID(c *gin.Context) {
 	c.JSON(http.StatusOK, toSubscriptionResponse(subscription))
 }
 
+// UpdateSubscription godoc
+// @Summary Update subscription
+// @Description Updates subscription by id.
+// @Tags subscriptions
+// @Accept json
+// @Produce json
+// @Param id path int true "Subscription id"
+// @Param request body UpdateSubscriptionRequest true "Subscription payload"
+// @Success 200 {object} SubscriptionResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/subscriptions/{id} [put]
 func (h *Handler) UpdateSubscription(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
@@ -140,13 +207,32 @@ func (h *Handler) UpdateSubscription(c *gin.Context) {
 
 	subscription, err := h.repo.Update(c.Request.Context(), params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update subscription"})
+		if errors.Is(err, model.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "subscription not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to update subscription",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, toSubscriptionResponse(subscription))
 }
 
+// DeleteSubscription godoc
+// @Summary Delete subscription
+// @Description Deletes subscription by id.
+// @Tags subscriptions
+// @Param id path int true "Subscription id"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/subscriptions/{id} [delete]
 func (h *Handler) DeleteSubscription(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
@@ -157,6 +243,13 @@ func (h *Handler) DeleteSubscription(c *gin.Context) {
 	}
 
 	if err := h.repo.Delete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "subscription not found",
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to delete subscription",
 		})
@@ -166,6 +259,19 @@ func (h *Handler) DeleteSubscription(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// GetTotalCost godoc
+// @Summary Calculate total cost
+// @Description Calculates total subscription cost for a selected period. Supports optional filters by user_id and service_name.
+// @Tags subscriptions
+// @Produce json
+// @Param from query string true "Start period in MM-YYYY format"
+// @Param to query string true "End period in MM-YYYY format"
+// @Param user_id query string false "User UUID"
+// @Param service_name query string false "Subscription service name"
+// @Success 200 {object} TotalCostResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/subscriptions/total [get]
 func (h *Handler) GetTotalCost(c *gin.Context) {
 	from := c.Query("from")
 	to := c.Query("to")
@@ -200,7 +306,7 @@ func (h *Handler) GetTotalCost(c *gin.Context) {
 		parsedUserID, err := uuid.Parse(userIDRaw)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": invalidIDError,
+				"error": invalidUserIDError,
 			})
 			return
 		}
@@ -226,12 +332,12 @@ func (h *Handler) GetTotalCost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"from":         from,
-		"to":           to,
-		"user_id":      userIDRaw,
-		"service_name": serviceNameRaw,
-		"total":        total,
+	c.JSON(http.StatusOK, TotalCostResponse{
+		From:        from,
+		To:          to,
+		UserID:      userIDRaw,
+		ServiceName: serviceNameRaw,
+		Total:       total,
 	})
 }
 
@@ -247,7 +353,7 @@ func buildCreateSubscriptionParams(req CreateSubscriptionRequest) (model.CreateS
 
 	userID, err := uuid.Parse(req.UserID)
 	if err != nil {
-		return model.CreateSubscriptionParams{}, errors.New(invalidIDError)
+		return model.CreateSubscriptionParams{}, errors.New(invalidUserIDError)
 	}
 
 	startDate, err := parseMonthYear(req.StartDate)
@@ -293,7 +399,7 @@ func buildUpdateSubscriptionParams(
 
 	userID, err := uuid.Parse(req.UserID)
 	if err != nil {
-		return model.UpdateSubscriptionParams{}, errors.New(invalidIDError)
+		return model.UpdateSubscriptionParams{}, errors.New(invalidUserIDError)
 	}
 
 	startDate, err := parseMonthYear(req.StartDate)
@@ -343,6 +449,7 @@ func parseMonthYear(value string) (time.Time, error) {
 }
 
 func parseOptionalMonthYear(value string) (time.Time, bool, error) {
+	value = strings.TrimSpace(value)
 	if value == "" {
 		return time.Time{}, false, nil
 	}
@@ -376,4 +483,10 @@ func toSubscriptionResponse(subscription model.Subscription) SubscriptionRespons
 		CreatedAt:   subscription.CreatedAt,
 		UpdatedAt:   subscription.UpdatedAt,
 	}
+}
+
+func Ping(c *gin.Context) {
+	c.JSON(http.StatusOK, HealthResponse{
+		Status: "pong",
+	})
 }

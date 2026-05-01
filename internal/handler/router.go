@@ -1,15 +1,18 @@
 package handler
 
 import (
-	"net/http"
-
-	"github.com/spoddub/subscription-aggregator/internal/repository"
-
 	"github.com/gin-gonic/gin"
+	"github.com/spoddub/subscription-aggregator/internal/repository"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type Handler struct {
 	repo *repository.SubscriptionRepository
+}
+
+type HealthResponse struct {
+	Status string `json:"status" example:"ok"`
 }
 
 func NewRouter(repo *repository.SubscriptionRepository) *gin.Engine {
@@ -19,11 +22,8 @@ func NewRouter(repo *repository.SubscriptionRepository) *gin.Engine {
 		repo: repo,
 	}
 
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
-	})
+	r.GET("/ping", Ping)
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 
 	subscriptions := r.Group("api/subscriptions")
 	{

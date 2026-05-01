@@ -7,9 +7,9 @@ import (
 	"github.com/spoddub/subscription-aggregator/internal/repository"
 
 	"github.com/joho/godotenv"
+	_ "github.com/spoddub/subscription-aggregator/docs"
 	"github.com/spoddub/subscription-aggregator/internal/config"
 	"github.com/spoddub/subscription-aggregator/internal/db"
-
 	"github.com/spoddub/subscription-aggregator/internal/handler"
 )
 

@@ -1,3 +1,4 @@
+.PHONY: tidy test lint lint-fix docker-up docker-down docker-logs check ping dev swagger
 tidy:
 	go mod tidy
 	go fmt ./...
@@ -26,3 +27,5 @@ dev:
 	sleep 5
 	goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable" up
 	air -c .air.toml
+swagger:
+	swag init -g ./cmd/subscription-aggregator/main.go -o ./docs --parseInternal
