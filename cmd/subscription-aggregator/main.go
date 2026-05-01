@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 
+	"github.com/spoddub/subscription-aggregator/internal/repository"
+
 	"github.com/joho/godotenv"
 	"github.com/spoddub/subscription-aggregator/internal/config"
 	"github.com/spoddub/subscription-aggregator/internal/db"
@@ -25,7 +27,9 @@ func main() {
 	}
 	defer pool.Close()
 
-	r := handler.NewRouter()
+	subscriptionRepo := repository.NewSubscriptionRepository(pool)
+
+	r := handler.NewRouter(subscriptionRepo)
 
 	address := ":" + cfg.Port
 	if err := r.Run(address); err != nil {
