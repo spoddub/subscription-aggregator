@@ -16,6 +16,7 @@ docker-logs:
 	docker compose logs -f
 check:
 	docker compose up -d
+	sleep 5
 	goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable" up
 	go run ./cmd/subscription-aggregator
 ping:
