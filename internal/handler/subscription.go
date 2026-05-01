@@ -255,13 +255,18 @@ func buildCreateSubscriptionParams(req CreateSubscriptionRequest) (model.CreateS
 		return model.CreateSubscriptionParams{}, errors.New("invalid start_date, expected format MM-YYYY")
 	}
 
-	endDate, err := parseOptionalMonthYear(req.EndDate)
+	endDateValue, hasEndDate, err := parseOptionalMonthYear(req.EndDate)
 	if err != nil {
 		return model.CreateSubscriptionParams{}, errors.New("invalid end_date, expected format MM-YYYY")
 	}
 
+	var endDate *time.Time
+	if hasEndDate {
+		endDate = &endDateValue
+	}
+
 	if endDate != nil && endDate.Before(startDate) {
-		return model.CreateSubscriptionParams{}, errors.New("end_date must be after or equal to start_date")
+		return model.CreateSubscriptionParams{}, errors.New("end date must be after than start date")
 	}
 
 	return model.CreateSubscriptionParams{
@@ -296,13 +301,18 @@ func buildUpdateSubscriptionParams(
 		return model.UpdateSubscriptionParams{}, errors.New("invalid start_date, expected format MM-YYYY")
 	}
 
-	endDate, err := parseOptionalMonthYear(req.EndDate)
+	endDateValue, hasEndDate, err := parseOptionalMonthYear(req.EndDate)
 	if err != nil {
 		return model.UpdateSubscriptionParams{}, errors.New("invalid end_date, expected format MM-YYYY")
 	}
 
+	var endDate *time.Time
+	if hasEndDate {
+		endDate = &endDateValue
+	}
+
 	if endDate != nil && endDate.Before(startDate) {
-		return model.UpdateSubscriptionParams{}, errors.New("end_date must be after or equal to start_date")
+		return model.UpdateSubscriptionParams{}, errors.New("end date must be after start date")
 	}
 
 	return model.UpdateSubscriptionParams{
@@ -332,18 +342,17 @@ func parseMonthYear(value string) (time.Time, error) {
 	return time.Parse("01-2006", strings.TrimSpace(value))
 }
 
-func parseOptionalMonthYear(value string) (*time.Time, error) {
-	value = strings.TrimSpace(value)
+func parseOptionalMonthYear(value string) (time.Time, bool, error) {
 	if value == "" {
-		return nil, nil
+		return time.Time{}, false, nil
 	}
 
 	parsed, err := parseMonthYear(value)
 	if err != nil {
-		return nil, err
+		return time.Time{}, false, err
 	}
 
-	return &parsed, nil
+	return parsed, true, nil
 }
 
 func formatMonthYear(value time.Time) string {

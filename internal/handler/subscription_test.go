@@ -1,9 +1,10 @@
 package handler
 
 import (
-	"github.com/google/uuid"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestParseMonthYear(t *testing.T) {
@@ -76,29 +77,62 @@ func TestParseMonthYear(t *testing.T) {
 func TestParseOptionalMonthYear(t *testing.T) {
 	t.Parallel()
 
-	t.Run("empty month year", func(t *testing.T) {
+	t.Run("empty value returns false", func(t *testing.T) {
 		t.Parallel()
 
-		got, err := parseOptionalMonthYear("")
+		got, ok, err := parseOptionalMonthYear("")
 		if err != nil {
-			t.Errorf("want no error, got %v", err)
+			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if got != nil {
-			t.Errorf("want nil, got %v", got)
+		if ok {
+			t.Fatal("expected ok to be false")
+		}
+
+		if !got.IsZero() {
+			t.Fatalf("expected zero time, got %v", got)
 		}
 	})
 
-	t.Run("valid value returns error", func(t *testing.T) {
+	t.Run("valid value returns date", func(t *testing.T) {
 		t.Parallel()
 
-		got, err := parseOptionalMonthYear("2025-07")
-		if err == nil {
-			t.Errorf("want error, got nil")
+		got, ok, err := parseOptionalMonthYear("12-2025")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if got != nil {
-			t.Errorf("want nil, got %v", got)
+		if !ok {
+			t.Fatal("expected ok to be true")
+		}
+
+		if got.Year() != 2025 {
+			t.Fatalf("expected year 2025, got %d", got.Year())
+		}
+
+		if got.Month() != time.December {
+			t.Fatalf("expected month December, got %v", got.Month())
+		}
+
+		if got.Day() != 1 {
+			t.Fatalf("expected day 1, got %d", got.Day())
+		}
+	})
+
+	t.Run("invalid value returns error", func(t *testing.T) {
+		t.Parallel()
+
+		got, ok, err := parseOptionalMonthYear("2025-12")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+
+		if ok {
+			t.Fatal("expected ok to be false")
+		}
+
+		if !got.IsZero() {
+			t.Fatalf("expected zero time, got %v", got)
 		}
 	})
 }
