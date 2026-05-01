@@ -2,8 +2,9 @@ package repository
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,7 +40,7 @@ func (r *SubscriptionRepository) Create(ctx context.Context, params model.Create
 			updated_at
 	`
 
-	row := r.pool.QueryRow(ctx, query, params.ServiceName, params.Price, params.UserID, params.StartDate, params.EndDate)
+	row := r.pool.QueryRow(ctx, query, params.ServiceName, params.Price, params.UserID, params.StartDate, nullableTime(params.EndDate))
 
 	subscription, err := scanSubscription(row)
 	if err != nil {
@@ -107,7 +108,11 @@ func (r *SubscriptionRepository) GetByID(ctx context.Context, id int64) (model.S
 
 	subscription, err := scanSubscription(row)
 	if err != nil {
-		return model.Subscription{}, fmt.Errorf("could not get subscription by id: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.Subscription{}, model.ErrNotFound
+		}
+
+		return model.Subscription{}, fmt.Errorf("get subscription by id: %w", err)
 	}
 
 	return subscription, nil
@@ -121,7 +126,7 @@ func (r *SubscriptionRepository) Update(ctx context.Context, params model.Update
 			price = $3,
 			user_id = $4,
 			start_date = $5,
-			end_date = $6
+			end_date = $6,
 			updated_at = now()
 		WHERE id = $1
 			RETURNING
@@ -135,11 +140,15 @@ func (r *SubscriptionRepository) Update(ctx context.Context, params model.Update
 			updated_at
 		`
 
-	row := r.pool.QueryRow(ctx, query, params.ServiceName, params.Price, params.UserID, params.StartDate, params.EndDate)
+	row := r.pool.QueryRow(ctx, query, params.ID, params.ServiceName, params.Price, params.UserID, params.StartDate, nullableTime(params.EndDate))
 
 	subscription, err := scanSubscription(row)
 	if err != nil {
-		return model.Subscription{}, fmt.Errorf("could not update subscription: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.Subscription{}, model.ErrNotFound
+		}
+
+		return model.Subscription{}, fmt.Errorf("update subscription: %w", err)
 	}
 
 	return subscription, nil
@@ -215,7 +224,7 @@ func (r *SubscriptionRepository) GetTotalCost(ctx context.Context, filter model.
 
 func scanSubscription(row pgx.Row) (model.Subscription, error) {
 	var subscription model.Subscription
-	var endDate sql.NullTime
+	var endDate *time.Time
 
 	err := row.Scan(
 		&subscription.ID,
@@ -231,10 +240,15 @@ func scanSubscription(row pgx.Row) (model.Subscription, error) {
 		return model.Subscription{}, err
 	}
 
-	if endDate.Valid {
-		subscription.EndDate = &endDate.Time
-	}
+	subscription.EndDate = endDate
 
 	return subscription, nil
+}
 
+func nullableTime(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+
+	return *value
 }

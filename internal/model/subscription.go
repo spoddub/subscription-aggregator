@@ -1,10 +1,13 @@
 package model
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var ErrNotFound = errors.New("not found")
 
 type Subscription struct {
 	ID          int64
