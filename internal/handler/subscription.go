@@ -16,6 +16,7 @@ const (
 	invalidIDError          string = "invalid id"
 	invalidUserIDError      string = "invalid user_id"
 	invalidRequestBodyError string = "invalid request body"
+	subscriptionNotFound    string = "subscription not found"
 )
 
 type CreateSubscriptionRequest struct {
@@ -178,7 +179,7 @@ func (h *Handler) GetSubscriptionByID(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
-				"error": "subscription not found",
+				"error": subscriptionNotFound,
 			})
 			return
 		}
@@ -246,7 +247,7 @@ func (h *Handler) UpdateSubscription(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
-				"error": "subscription not found",
+				"error": subscriptionNotFound,
 			})
 			return
 		}
@@ -296,7 +297,7 @@ func (h *Handler) DeleteSubscription(c *gin.Context) {
 	if err := h.repo.Delete(c.Request.Context(), id); err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
-				"error": "subscription not found",
+				"error": subscriptionNotFound,
 			})
 			return
 		}
