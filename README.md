@@ -22,7 +22,9 @@ The service works with monthly subscriptions. Dates are passed in `MM-YYYY` form
 - Request validation for UUID, price and date format
 - Unit tests for date parsing and request validation
 - Swagger API documentation
+- Structured application logs with `slog`
 - Local development with Docker Compose
+- Full Docker run with app and PostgreSQL
 - Makefile commands for common development tasks
 
 ---
@@ -38,9 +40,11 @@ The service works with monthly subscriptions. Dates are passed in `MM-YYYY` form
 | [goose](https://github.com/pressly/goose) | Database migrations |
 | [godotenv](https://github.com/joho/godotenv) | Loading local `.env` files |
 | [google/uuid](https://github.com/google/uuid) | UUID parsing and validation |
+| [slog](https://pkg.go.dev/log/slog) | Structured application logging |
 | [swaggo/swag](https://github.com/swaggo/swag) | Swagger documentation generation |
 | [gin-swagger](https://github.com/swaggo/gin-swagger) | Swagger UI for Gin |
-| [Docker Compose](https://docs.docker.com/compose/) | Local PostgreSQL environment |
+| [Docker](https://www.docker.com/) | Containerized application runtime |
+| [Docker Compose](https://docs.docker.com/compose/) | Local app and PostgreSQL environment |
 | [Make](https://www.gnu.org/software/make/) | Common development commands |
 | [golangci-lint](https://golangci-lint.run/) | Go linter |
 | [Air](https://github.com/air-verse/air) | Hot reload for local development |
@@ -411,29 +415,37 @@ go install github.com/air-verse/air@latest
 
 ## Environment variables
 
-Create `.env` in the project root:
+Create `.env` in the project root for local development:
 
 ```env
 PORT=8080
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable
+LOG_LEVEL=debug
 ```
 
 Environment variables:
 
 - `PORT` - HTTP server port, defaults to `8080`
 - `DATABASE_URL` - PostgreSQL connection string
+- `LOG_LEVEL` - application log level, defaults to `info`
+
+For Docker Compose, the app uses the PostgreSQL service name as host:
+
+```env
+DATABASE_URL=postgres://postgres:postgres@postgres:5432/subscription_aggregator?sslmode=disable
+```
 
 ---
 
 ## Run locally
 
-Start PostgreSQL, apply migrations and run the application:
+Start PostgreSQL, apply migrations and run the application locally:
 
 ```bash
 make check
 ```
 
-`make check` starts the app and keeps the terminal busy while the server is running.
+`make check` starts PostgreSQL, applies migrations and runs the Go app on the host machine.
 
 The app listens on:
 
@@ -461,15 +473,63 @@ This command starts PostgreSQL, applies migrations and runs the app through Air.
 
 ---
 
+## Full Docker run
+
+Build and run the app together with PostgreSQL:
+
+```bash
+make docker-app
+```
+
+This command runs:
+
+```text
+docker compose up --build
+```
+
+The Docker app container applies database migrations automatically before starting the server.
+
+The app listens on:
+
+```text
+http://localhost:8080
+```
+
+Check the app from another terminal:
+
+```bash
+make ping
+```
+
+Open Swagger UI:
+
+```text
+http://localhost:8080/swagger/index.html
+```
+
+Stop Docker Compose services:
+
+```bash
+make docker-down
+```
+
+---
+
 ## Docker commands
 
-Start PostgreSQL:
+Start PostgreSQL only:
 
 ```bash
 make docker-up
 ```
 
-Stop PostgreSQL:
+Build and run PostgreSQL with the app:
+
+```bash
+make docker-app
+```
+
+Stop Docker Compose services:
 
 ```bash
 make docker-down
@@ -485,7 +545,7 @@ make docker-logs
 
 ## Migrations
 
-Migrations are applied automatically by:
+For local development, migrations are applied automatically by:
 
 ```bash
 make check
@@ -496,6 +556,8 @@ and:
 ```bash
 make dev
 ```
+
+For full Docker run, migrations are applied automatically by the app container entrypoint.
 
 You can also apply migrations manually:
 
@@ -628,7 +690,17 @@ make docker-up
 Runs:
 
 ```text
-docker compose up -d
+docker compose up -d postgres
+```
+
+```bash
+make docker-app
+```
+
+Runs:
+
+```text
+docker compose up --build
 ```
 
 ```bash
@@ -658,7 +730,7 @@ make check
 Runs:
 
 ```text
-docker compose up -d
+docker compose up -d postgres
 sleep 5
 goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable" up
 go run ./cmd/subscription-aggregator
@@ -681,7 +753,7 @@ make dev
 Runs:
 
 ```text
-docker compose up -d
+docker compose up -d postgres
 sleep 5
 goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable" up
 air -c .air.toml
@@ -698,8 +770,6 @@ swag init -g ./cmd/subscription-aggregator/main.go -o ./docs --parseInternal
 ```
 
 ---
-
-
 
 ## Database schema
 

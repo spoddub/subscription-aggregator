@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+tmp/
+bin/
+*.log
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+.idea/
+.DS_Store
