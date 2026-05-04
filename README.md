@@ -1,3 +1,6 @@
+![Tests](https://github.com/spoddub/subscription-aggregator/actions/workflows/tests.yml/badge.svg)
+![Linter](https://github.com/spoddub/subscription-aggregator/actions/workflows/linter.yml/badge.svg)
+
 ## Subscription Aggregator
 
 `Subscription Aggregator` is a REST API service written in Go (Gin).  
