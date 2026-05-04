@@ -2,37 +2,49 @@ package main
 
 import (
 	"context"
-	"log"
-
-	"github.com/spoddub/subscription-aggregator/internal/repository"
+	"os"
 
 	"github.com/joho/godotenv"
 	_ "github.com/spoddub/subscription-aggregator/docs"
 	"github.com/spoddub/subscription-aggregator/internal/config"
 	"github.com/spoddub/subscription-aggregator/internal/db"
 	"github.com/spoddub/subscription-aggregator/internal/handler"
+	"github.com/spoddub/subscription-aggregator/internal/logger"
+	"github.com/spoddub/subscription-aggregator/internal/repository"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+	dotenvErr := godotenv.Load()
+	cfg := config.Load()
+	appLogger := logger.New(cfg.LogLevel)
+
+	if dotenvErr != nil {
+		appLogger.Info("no .env file found, using environment variables")
 	}
 
-	cfg := config.Load()
+	appLogger.Info(
+		"application starting",
+		"port", cfg.Port,
+		"log_level", cfg.LogLevel)
+
 	ctx := context.Background()
 
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Error connecting to database: %v", err)
+		appLogger.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
 
+	appLogger.Info("database connected")
+
 	subscriptionRepo := repository.NewSubscriptionRepository(pool)
 
-	r := handler.NewRouter(subscriptionRepo)
+	r := handler.NewRouter(subscriptionRepo, appLogger)
 
 	address := ":" + cfg.Port
 	if err := r.Run(address); err != nil {
-		log.Fatalf("faild to run server: %v", err)
+		appLogger.Error("failed to start server", "error", err)
+		os.Exit(1)
 	}
 }

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
 	"github.com/spoddub/subscription-aggregator/internal/repository"
 	swaggerfiles "github.com/swaggo/files"
@@ -8,18 +10,27 @@ import (
 )
 
 type Handler struct {
-	repo *repository.SubscriptionRepository
+	repo   *repository.SubscriptionRepository
+	logger *slog.Logger
 }
 
 type HealthResponse struct {
 	Status string `json:"status" example:"ok"`
 }
 
-func NewRouter(repo *repository.SubscriptionRepository) *gin.Engine {
+func NewRouter(repo *repository.SubscriptionRepository, appLogger *slog.Logger) *gin.Engine {
 	r := gin.Default()
+	if err := r.SetTrustedProxies(nil); err != nil {
+		panic(err)
+	}
+
+	if appLogger == nil {
+		appLogger = slog.Default()
+	}
 
 	handler := &Handler{
-		repo: repo,
+		repo:   repo,
+		logger: appLogger,
 	}
 
 	r.GET("/ping", Ping)

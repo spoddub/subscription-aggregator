@@ -72,6 +72,11 @@ type ErrorResponse struct {
 func (h *Handler) ListSubscriptions(c *gin.Context) {
 	subscriptions, err := h.repo.List(c.Request.Context())
 	if err != nil {
+		h.logger.ErrorContext(
+			c.Request.Context(),
+			"failed to list subscriptions",
+			"error", err)
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to list subscriptions",
 		})
@@ -82,6 +87,11 @@ func (h *Handler) ListSubscriptions(c *gin.Context) {
 	for _, subscription := range subscriptions {
 		response = append(response, toSubscriptionResponse(subscription))
 	}
+
+	h.logger.InfoContext(
+		c.Request.Context(),
+		"subscriptions listed",
+		"count", len(response))
 
 	c.JSON(http.StatusOK, ListSubscriptionsResponse{
 		Subscriptions: response,
@@ -119,11 +129,27 @@ func (h *Handler) CreateSubscription(c *gin.Context) {
 
 	subscription, err := h.repo.Create(c.Request.Context(), params)
 	if err != nil {
+		h.logger.ErrorContext(
+			c.Request.Context(),
+			"failed to create subscription",
+			"error", err,
+			"user_id", params.UserID,
+			"service_name", params.ServiceName,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to create subscription",
 		})
 		return
 	}
+
+	h.logger.InfoContext(
+		c.Request.Context(),
+		"subscription created",
+		"id", subscription.ID,
+		"user_id", subscription.UserID,
+		"service_name", subscription.ServiceName,
+		"price", subscription.Price)
 
 	c.JSON(http.StatusCreated, toSubscriptionResponse(subscription))
 }
@@ -157,11 +183,22 @@ func (h *Handler) GetSubscriptionByID(c *gin.Context) {
 			return
 		}
 
+		h.logger.ErrorContext(
+			c.Request.Context(),
+			"failed to fetch subscription",
+			"error", err,
+			"id", id)
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to get subscription",
 		})
 		return
 	}
+
+	h.logger.InfoContext(
+		c.Request.Context(),
+		"subscription found",
+		"id", subscription.ID)
 
 	c.JSON(http.StatusOK, toSubscriptionResponse(subscription))
 }
@@ -214,11 +251,25 @@ func (h *Handler) UpdateSubscription(c *gin.Context) {
 			return
 		}
 
+		h.logger.ErrorContext(
+			c.Request.Context(),
+			"failed to update subscription",
+			"error", err,
+			"id", id)
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to update subscription",
 		})
 		return
 	}
+
+	h.logger.InfoContext(
+		c.Request.Context(),
+		"subscription updated",
+		"id", subscription.ID,
+		"user_id", subscription.UserID,
+		"service_name", subscription.ServiceName,
+		"price", subscription.Price)
 
 	c.JSON(http.StatusOK, toSubscriptionResponse(subscription))
 }
@@ -250,11 +301,22 @@ func (h *Handler) DeleteSubscription(c *gin.Context) {
 			return
 		}
 
+		h.logger.ErrorContext(
+			c.Request.Context(),
+			"failed to delete subscription",
+			"error", err,
+			"id", id)
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to delete subscription",
 		})
 		return
 	}
+
+	h.logger.InfoContext(
+		c.Request.Context(),
+		"subscription deleted",
+		"id", id)
 
 	c.Status(http.StatusNoContent)
 }
@@ -326,11 +388,30 @@ func (h *Handler) GetTotalCost(c *gin.Context) {
 		ServiceName: serviceName,
 	})
 	if err != nil {
+		h.logger.ErrorContext(
+			c.Request.Context(),
+			"failed to calculate total cost",
+			"error", err,
+			"from", from,
+			"to", to,
+			"user_id", userIDRaw,
+			"service_name", serviceName,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to calculate total cost",
 		})
 		return
 	}
+
+	h.logger.InfoContext(
+		c.Request.Context(),
+		"total cost calculated",
+		"from", from,
+		"to", to,
+		"user_id", userIDRaw,
+		"service_name", serviceName,
+		"total", total)
 
 	c.JSON(http.StatusOK, TotalCostResponse{
 		From:        from,

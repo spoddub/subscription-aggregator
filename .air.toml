@@ -3,7 +3,7 @@ tmp_dir = "tmp"
 
 [build]
 cmd = "go build -o ./tmp/subscription-aggregator ./cmd/subscription-aggregator"
-bin = "./tmp/subscription-aggregator"
+entrypoint = "./tmp/subscription-aggregator"
 
 include_ext = ["go", "env"]
 exclude_dir = ["tmp", "vendor", ".git"]
