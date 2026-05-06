@@ -5,7 +5,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/spoddub/subscription-aggregator/internal/model"
 )
+
+const userIDConst = "60601fee-2bf1-4721-ae6f-7636e79a0cba"
 
 func TestParseMonthYear(t *testing.T) {
 	t.Parallel()
@@ -200,7 +203,7 @@ func TestParseID(t *testing.T) {
 func TestBuildCreateSubscriptionParams(t *testing.T) {
 	t.Parallel()
 
-	userID := "60601fee-2bf1-4721-ae6f-7636e79a0cba"
+	userID := userIDConst
 
 	t.Run("valid request", func(t *testing.T) {
 		t.Parallel()
@@ -267,7 +270,7 @@ func TestBuildCreateSubscriptionParams(t *testing.T) {
 func TestBuildCreateSubscriptionParamsErrors(t *testing.T) {
 	t.Parallel()
 
-	validUserID := "60601fee-2bf1-4721-ae6f-7636e79a0cba"
+	validUserID := userIDConst
 
 	tests := []struct {
 		name string
@@ -355,48 +358,125 @@ func TestBuildCreateSubscriptionParamsErrors(t *testing.T) {
 func TestBuildUpdateSubscriptionParams(t *testing.T) {
 	t.Parallel()
 
-	userID := "60601fee-2bf1-4721-ae6f-7636e79a0cba"
-
-	req := UpdateSubscriptionRequest{
-		ServiceName: "Yandex Plus",
-		Price:       500,
-		UserID:      userID,
-		StartDate:   "07-2025",
-		EndDate:     "12-2025",
-	}
-
-	got, err := buildUpdateSubscriptionParams(42, req)
+	userID := uuid.MustParse(userIDConst)
+	startDate, err := parseMonthYear("07-2025")
 	if err != nil {
-		t.Errorf("want no error, got %v", err)
+		t.Fatalf("failed to parse start date: %v", err)
 	}
 
-	if got.ID != 42 {
-		t.Errorf("want id 42, got %d", got.ID)
+	current := model.Subscription{
+		ID:          42,
+		ServiceName: "Yandex Plus",
+		Price:       400,
+		UserID:      userID,
+		StartDate:   startDate,
+		EndDate:     nil,
 	}
 
-	if got.ServiceName != "Yandex Plus" {
-		t.Errorf("want Yandex Plus, got %s", got.ServiceName)
-	}
+	t.Run("updates only price", func(t *testing.T) {
+		t.Parallel()
 
-	if got.Price != 500 {
-		t.Errorf("want 500, got %d", got.Price)
-	}
+		req := UpdateSubscriptionRequest{
+			Price: intPtr(500),
+		}
 
-	if got.UserID != uuid.MustParse(userID) {
-		t.Errorf("want user id %s, got %s", userID, got.UserID)
-	}
+		got, err := buildUpdateSubscriptionParams(42, current, req)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 
-	if got.StartDate.Format("01-2006") != "07-2025" {
-		t.Errorf("want date 07-2025, got %s", got.StartDate.Format("01-2006"))
-	}
+		if got.ID != 42 {
+			t.Fatalf("expected id 42, got %d", got.ID)
+		}
 
-	if got.EndDate == nil {
-		t.Errorf("want end date, got nil")
-	}
+		if got.ServiceName != current.ServiceName {
+			t.Fatalf("expected service name %q, got %q", current.ServiceName, got.ServiceName)
+		}
 
-	if got.EndDate.Format("01-2006") != "12-2025" {
-		t.Errorf("want date 12-2025, got %s", got.EndDate.Format("01-2006"))
-	}
+		if got.Price != 500 {
+			t.Fatalf("expected price 500, got %d", got.Price)
+		}
+
+		if got.UserID != current.UserID {
+			t.Fatalf("expected user id %s, got %s", current.UserID, got.UserID)
+		}
+
+		if !got.StartDate.Equal(current.StartDate) {
+			t.Fatalf("expected start date %v, got %v", current.StartDate, got.StartDate)
+		}
+
+		if got.EndDate != nil {
+			t.Fatalf("expected nil end date, got %v", got.EndDate)
+		}
+	})
+
+	t.Run("updates several fields", func(t *testing.T) {
+		t.Parallel()
+
+		newUserID := "2e0d4f8d-3d7c-4b22-8d6b-296f6c4a22b2"
+
+		req := UpdateSubscriptionRequest{
+			ServiceName: stringPtr("  Netflix  "),
+			Price:       intPtr(999),
+			UserID:      stringPtr(newUserID),
+			StartDate:   stringPtr("08-2025"),
+			EndDate:     stringPtr("12-2025"),
+		}
+
+		got, err := buildUpdateSubscriptionParams(42, current, req)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if got.ServiceName != "Netflix" {
+			t.Fatalf("expected service name Netflix, got %q", got.ServiceName)
+		}
+
+		if got.Price != 999 {
+			t.Fatalf("expected price 999, got %d", got.Price)
+		}
+
+		if got.UserID != uuid.MustParse(newUserID) {
+			t.Fatalf("expected user id %s, got %s", newUserID, got.UserID)
+		}
+
+		if got.StartDate.Format("01-2006") != "08-2025" {
+			t.Fatalf("expected start date 08-2025, got %s", got.StartDate.Format("01-2006"))
+		}
+
+		if got.EndDate == nil {
+			t.Fatal("expected end date, got nil")
+		}
+
+		if got.EndDate.Format("01-2006") != "12-2025" {
+			t.Fatalf("expected end date 12-2025, got %s", got.EndDate.Format("01-2006"))
+		}
+	})
+
+	t.Run("clears end date with empty string", func(t *testing.T) {
+		t.Parallel()
+
+		endDate, err := parseMonthYear("12-2025")
+		if err != nil {
+			t.Fatalf("failed to parse end date: %v", err)
+		}
+
+		currentWithEndDate := current
+		currentWithEndDate.EndDate = &endDate
+
+		req := UpdateSubscriptionRequest{
+			EndDate: stringPtr(""),
+		}
+
+		got, err := buildUpdateSubscriptionParams(42, currentWithEndDate, req)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if got.EndDate != nil {
+			t.Fatalf("expected nil end date, got %v", got.EndDate)
+		}
+	})
 }
 
 func TestFormatMonthYear(t *testing.T) {
@@ -540,4 +620,88 @@ func TestParseOffset(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildUpdateSubscriptionParamsErrors(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.MustParse(userIDConst)
+	startDate, err := parseMonthYear("07-2025")
+	if err != nil {
+		t.Fatalf("failed to parse start date: %v", err)
+	}
+
+	current := model.Subscription{
+		ID:          42,
+		ServiceName: "Yandex Plus",
+		Price:       400,
+		UserID:      userID,
+		StartDate:   startDate,
+		EndDate:     nil,
+	}
+
+	tests := []struct {
+		name string
+		req  UpdateSubscriptionRequest
+	}{
+		{
+			name: "empty request",
+			req:  UpdateSubscriptionRequest{},
+		},
+		{
+			name: "empty service name",
+			req: UpdateSubscriptionRequest{
+				ServiceName: stringPtr("   "),
+			},
+		},
+		{
+			name: "zero price",
+			req: UpdateSubscriptionRequest{
+				Price: intPtr(0),
+			},
+		},
+		{
+			name: "negative price",
+			req: UpdateSubscriptionRequest{
+				Price: intPtr(-100),
+			},
+		},
+		{
+			name: "invalid user id",
+			req: UpdateSubscriptionRequest{
+				UserID: stringPtr("invalid user id"),
+			},
+		},
+		{
+			name: "invalid start date",
+			req: UpdateSubscriptionRequest{
+				StartDate: stringPtr("2025-07"),
+			},
+		},
+		{
+			name: "end date before start date",
+			req: UpdateSubscriptionRequest{
+				EndDate: stringPtr("06-2025"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := buildUpdateSubscriptionParams(42, current, tt.req)
+			if err == nil {
+				t.Errorf("expected error, got nil")
+			}
+		})
+	}
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func intPtr(i int) *int {
+	return &i
 }
