@@ -17,6 +17,9 @@ const (
 	invalidUserIDError      string = "invalid user_id"
 	invalidRequestBodyError string = "invalid request body"
 	subscriptionNotFound    string = "subscription not found"
+	defaultListLimit               = 20
+	maxListLimit                   = 100
+	defaultOffset                  = 0
 )
 
 type CreateSubscriptionRequest struct {
@@ -48,6 +51,9 @@ type SubscriptionResponse struct {
 
 type ListSubscriptionsResponse struct {
 	Subscriptions []SubscriptionResponse `json:"subscriptions"`
+	Limit         int                    `json:"limit" example:"20"`
+	Offset        int                    `json:"offset" example:"0"`
+	Count         int                    `json:"count" example:"1"`
 }
 
 type TotalCostResponse struct {
@@ -64,19 +70,32 @@ type ErrorResponse struct {
 
 // ListSubscriptions godoc
 // @Summary List subscriptions
-// @Description Returns all subscriptions.
+// @Description Returns subscriptions. Supports pagination and optional filters by user_id and service_name.
 // @Tags subscriptions
 // @Produce json
+// @Param limit query int false "Limit, default 20, max 100"
+// @Param offset query int false "Offset, default 0"
+// @Param user_id query string false "User UUID"
+// @Param service_name query string false "Subscription service name"
 // @Success 200 {object} ListSubscriptionsResponse
+// @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /api/subscriptions [get]
 func (h *Handler) ListSubscriptions(c *gin.Context) {
-	subscriptions, err := h.repo.List(c.Request.Context())
+	filter, err := buildListSubscripionsFilter(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	subscriptions, err := h.repo.List(c.Request.Context(), filter)
 	if err != nil {
 		h.logger.ErrorContext(
 			c.Request.Context(),
 			"failed to list subscriptions",
-			"error", err)
+			"error", err,
+			"limit", filter.Limit,
+			"offset", filter.Offset)
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to list subscriptions",
@@ -92,10 +111,15 @@ func (h *Handler) ListSubscriptions(c *gin.Context) {
 	h.logger.InfoContext(
 		c.Request.Context(),
 		"subscriptions listed",
-		"count", len(response))
+		"count", len(response),
+		"limit", filter.Limit,
+		"offset", filter.Offset)
 
 	c.JSON(http.StatusOK, ListSubscriptionsResponse{
 		Subscriptions: response,
+		Limit:         filter.Limit,
+		Offset:        filter.Offset,
+		Count:         len(subscriptions),
 	})
 }
 
@@ -571,4 +595,78 @@ func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, HealthResponse{
 		Status: "pong",
 	})
+}
+
+func buildListSubscripionsFilter(c *gin.Context) (model.ListSubscriptionFilter, error) {
+	limit, err := parseLimit(c.Query("limit"))
+	if err != nil {
+		return model.ListSubscriptionFilter{}, err
+	}
+
+	offset, err := parseOffset(c.Query("offset"))
+	if err != nil {
+		return model.ListSubscriptionFilter{}, err
+	}
+
+	var userID *uuid.UUID
+	userIDRaw := strings.TrimSpace(c.Query("user_id"))
+	if userIDRaw != "" {
+		parsedUserID, err := uuid.Parse(userIDRaw)
+		if err != nil {
+			return model.ListSubscriptionFilter{}, errors.New(invalidUserIDError)
+		}
+
+		userID = &parsedUserID
+	}
+
+	var serviceName *string
+	serviceNameRaw := strings.TrimSpace(c.Query("service_name"))
+	if serviceNameRaw != "" {
+		serviceName = &serviceNameRaw
+	}
+
+	return model.ListSubscriptionFilter{
+		Limit:       limit,
+		Offset:      offset,
+		UserID:      userID,
+		ServiceName: serviceName,
+	}, nil
+}
+
+func parseLimit(rawLimit string) (int, error) {
+	if rawLimit == "" {
+		return defaultListLimit, nil
+	}
+
+	limit, err := strconv.Atoi(rawLimit)
+	if err != nil {
+		return 0, errors.New("limit must be a number")
+	}
+
+	if limit <= 0 {
+		return 0, errors.New("limit must be greater than 0")
+	}
+
+	if limit > maxListLimit {
+		return 0, errors.New("limit must be less than or equal to 100")
+	}
+
+	return limit, nil
+}
+
+func parseOffset(rawOffset string) (int, error) {
+	if rawOffset == "" {
+		return defaultOffset, nil
+	}
+
+	offset, err := strconv.Atoi(rawOffset)
+	if err != nil {
+		return 0, errors.New("offset must be a number")
+	}
+
+	if offset < 0 {
+		return 0, errors.New("offset must be greater or equal to 0")
+	}
+
+	return offset, nil
 }

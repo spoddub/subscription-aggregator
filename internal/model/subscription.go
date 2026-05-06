@@ -43,3 +43,10 @@ type TotalCostFilter struct {
 	UserID      *uuid.UUID
 	ServiceName *string
 }
+
+type ListSubscriptionFilter struct {
+	Limit       int
+	Offset      int
+	UserID      *uuid.UUID
+	ServiceName *string
+}

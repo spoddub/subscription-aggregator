@@ -50,7 +50,7 @@ func (r *SubscriptionRepository) Create(ctx context.Context, params model.Create
 	return subscription, nil
 }
 
-func (r *SubscriptionRepository) List(ctx context.Context) ([]model.Subscription, error) {
+func (r *SubscriptionRepository) List(ctx context.Context, filter model.ListSubscriptionFilter) ([]model.Subscription, error) {
 	const query = `
 		SELECT
 			id,
@@ -62,10 +62,23 @@ func (r *SubscriptionRepository) List(ctx context.Context) ([]model.Subscription
 			created_at,
 			updated_at
 		FROM subscriptions
+		WHERE ($1::uuid IS NULL OR user_id = $1)
+			AND ($2::text IS NULL OR service_name = $2)
 		ORDER BY id DESC
+		LIMIT $3 OFFSET $4
 	`
 
-	rows, err := r.pool.Query(ctx, query)
+	var userIDArg any
+	if filter.UserID != nil {
+		userIDArg = *filter.UserID
+	}
+
+	var serviceNameArg any
+	if filter.ServiceName != nil {
+		serviceNameArg = *filter.ServiceName
+	}
+
+	rows, err := r.pool.Query(ctx, query, userIDArg, serviceNameArg, filter.Limit, filter.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("could not list subscriptions: %w", err)
 	}
