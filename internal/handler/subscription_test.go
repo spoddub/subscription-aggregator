@@ -411,3 +411,133 @@ func TestFormatMonthYear(t *testing.T) {
 		t.Errorf("want date %s, got %s", want, got)
 	}
 }
+
+func TestParseLimit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		rawLimit  string
+		wantLimit int
+		wantErr   bool
+	}{
+		{
+			name:      "empty limit returns default",
+			rawLimit:  "",
+			wantLimit: defaultListLimit,
+			wantErr:   false,
+		},
+		{
+			name:      "valid limit",
+			rawLimit:  "10",
+			wantLimit: 10,
+			wantErr:   false,
+		},
+		{
+			name:     "zero limit",
+			rawLimit: "0",
+			wantErr:  true,
+		},
+		{
+			name:     "negative limit",
+			rawLimit: "-1",
+			wantErr:  true,
+		},
+		{
+			name:     "limit too large",
+			rawLimit: "101",
+			wantErr:  true,
+		},
+		{
+			name:     "not a number",
+			rawLimit: "abc",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseLimit(tt.rawLimit)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("want error, got nil")
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Errorf("want no error, got %v", err)
+			}
+
+			if got != tt.wantLimit {
+				t.Errorf("want %d, got %d", tt.wantLimit, got)
+			}
+		})
+	}
+}
+
+func TestParseOffset(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		rawOffset  string
+		wantOffset int
+		wantErr    bool
+	}{
+		{
+			name:       "empty offset returns default",
+			rawOffset:  "",
+			wantOffset: defaultOffset,
+			wantErr:    false,
+		},
+		{
+			name:       "valid offset",
+			rawOffset:  "10",
+			wantOffset: 10,
+			wantErr:    false,
+		},
+		{
+			name:       "zero offset",
+			rawOffset:  "0",
+			wantOffset: 0,
+			wantErr:    false,
+		},
+		{
+			name:      "negative offset",
+			rawOffset: "-1",
+			wantErr:   true,
+		},
+		{
+			name:      "not a number",
+			rawOffset: "abc",
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseOffset(tt.rawOffset)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("want error, got nil")
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Errorf("want no error, got %v", err)
+			}
+
+			if got != tt.wantOffset {
+				t.Errorf("want %d, got %d", tt.wantOffset, got)
+			}
+		})
+	}
+}
