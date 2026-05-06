@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/api/subscriptions": {
             "get": {
-                "description": "Returns all subscriptions.",
+                "description": "Returns subscriptions. Supports pagination and optional filters by user_id and service_name.",
                 "produces": [
                     "application/json"
                 ],
@@ -25,11 +25,43 @@ const docTemplate = `{
                     "subscriptions"
                 ],
                 "summary": "List subscriptions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit, default 20, max 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset, default 0",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "User UUID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Subscription service name",
+                        "name": "service_name",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/handler.ListSubscriptionsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
                         }
                     },
                     "500": {
@@ -327,6 +359,18 @@ const docTemplate = `{
         "handler.ListSubscriptionsResponse": {
             "type": "object",
             "properties": {
+                "count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
                 "subscriptions": {
                     "type": "array",
                     "items": {

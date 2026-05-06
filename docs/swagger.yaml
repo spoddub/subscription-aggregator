@@ -25,6 +25,15 @@ definitions:
     type: object
   handler.ListSubscriptionsResponse:
     properties:
+      count:
+        example: 1
+        type: integer
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
       subscriptions:
         items:
           $ref: '#/definitions/handler.SubscriptionResponse'
@@ -96,7 +105,25 @@ info:
 paths:
   /api/subscriptions:
     get:
-      description: Returns all subscriptions.
+      description: Returns subscriptions. Supports pagination and optional filters
+        by user_id and service_name.
+      parameters:
+      - description: Limit, default 20, max 100
+        in: query
+        name: limit
+        type: integer
+      - description: Offset, default 0
+        in: query
+        name: offset
+        type: integer
+      - description: User UUID
+        in: query
+        name: user_id
+        type: string
+      - description: Subscription service name
+        in: query
+        name: service_name
+        type: string
       produces:
       - application/json
       responses:
@@ -104,6 +131,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/handler.ListSubscriptionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
