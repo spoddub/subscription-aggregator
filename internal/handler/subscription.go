@@ -513,10 +513,10 @@ func buildCreateSubscriptionParams(req CreateSubscriptionRequest) (model.CreateS
 
 func buildUpdateSubscriptionParams(
 	id int64,
-	current model.CreateSubscriptionParams,
+	current model.Subscription,
 	req UpdateSubscriptionRequest,
 ) (model.UpdateSubscriptionParams, error) {
-	if !hasUpdatedFields(req) {
+	if !hasUpdateFields(req) {
 		return model.UpdateSubscriptionParams{}, errors.New("at least one field is required")
 	}
 
@@ -535,6 +535,8 @@ func buildUpdateSubscriptionParams(
 		if *req.Price <= 0 {
 			return model.UpdateSubscriptionParams{}, errors.New("price must be greater than zero")
 		}
+
+		price = *req.Price
 	}
 
 	userID := current.UserID
@@ -559,10 +561,11 @@ func buildUpdateSubscriptionParams(
 
 	endDate := current.EndDate
 	if req.EndDate != nil {
-		if strings.TrimSpace(*req.EndDate) != "" {
+		trimmedEndDate := strings.TrimSpace(*req.EndDate)
+		if trimmedEndDate == "" {
 			endDate = nil
 		} else {
-			parsedEndDate, err := parseMonthYear(*req.EndDate)
+			parsedEndDate, err := parseMonthYear(trimmedEndDate)
 			if err != nil {
 				return model.UpdateSubscriptionParams{}, errors.New("invalid end_date, expected format MM-YYYY")
 			}
@@ -585,7 +588,7 @@ func buildUpdateSubscriptionParams(
 	}, nil
 }
 
-func hasUpdatedFields(req UpdateSubscriptionRequest) bool {
+func hasUpdateFields(req UpdateSubscriptionRequest) bool {
 	return req.ServiceName != nil ||
 		req.Price != nil ||
 		req.UserID != nil ||
