@@ -31,11 +31,11 @@ type CreateSubscriptionRequest struct {
 }
 
 type UpdateSubscriptionRequest struct {
-	ServiceName string `json:"service_name" example:"Yandex Plus"`
-	Price       int    `json:"price" example:"500"`
-	UserID      string `json:"user_id" example:"60601fee-2bf1-4721-ae6f-7636e79a0cba"`
-	StartDate   string `json:"start_date" example:"07-2025"`
-	EndDate     string `json:"end_date,omitempty" example:"12-2025"`
+	ServiceName *string `json:"service_name,omitempty" example:"Yandex Plus"`
+	Price       *int    `json:"price,omitempty" example:"500"`
+	UserID      *string `json:"user_id,omitempty" example:"60601fee-2bf1-4721-ae6f-7636e79a0cba"`
+	StartDate   *string `json:"start_date,omitempty" example:"07-2025"`
+	EndDate     *string `json:"end_date,omitempty" example:"12-2025"`
 }
 
 type SubscriptionResponse struct {
@@ -230,7 +230,7 @@ func (h *Handler) GetSubscriptionByID(c *gin.Context) {
 
 // UpdateSubscription godoc
 // @Summary Update subscription
-// @Description Updates subscription by id.
+// @Description Partially updates subscription by id. Only provided fields are changed.
 // @Tags subscriptions
 // @Accept json
 // @Produce json
@@ -259,7 +259,28 @@ func (h *Handler) UpdateSubscription(c *gin.Context) {
 		return
 	}
 
-	params, err := buildUpdateSubscriptionParams(id, req)
+	currentSubscription, err := h.repo.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": subscriptionNotFound,
+			})
+			return
+		}
+
+		h.logger.ErrorContext(
+			c.Request.Context(),
+			"failed to fetch subscription before update",
+			"error", err,
+			"id", id)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to fetch subscription",
+		})
+		return
+	}
+
+	params, err := buildUpdateSubscriptionParams(id, currentSubscription, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -492,35 +513,62 @@ func buildCreateSubscriptionParams(req CreateSubscriptionRequest) (model.CreateS
 
 func buildUpdateSubscriptionParams(
 	id int64,
+	current model.CreateSubscriptionParams,
 	req UpdateSubscriptionRequest,
 ) (model.UpdateSubscriptionParams, error) {
-	serviceName := strings.TrimSpace(req.ServiceName)
-	if serviceName == "" {
-		return model.UpdateSubscriptionParams{}, errors.New("service_name is required")
+	if !hasUpdatedFields(req) {
+		return model.UpdateSubscriptionParams{}, errors.New("at least one field is required")
 	}
 
-	if req.Price <= 0 {
-		return model.UpdateSubscriptionParams{}, errors.New("price must be greater than zero")
+	serviceName := current.ServiceName
+	if req.ServiceName != nil {
+		trimmedServiceName := strings.TrimSpace(*req.ServiceName)
+		if trimmedServiceName == "" {
+			return model.UpdateSubscriptionParams{}, errors.New("service_name is required")
+		}
+
+		serviceName = trimmedServiceName
 	}
 
-	userID, err := uuid.Parse(req.UserID)
-	if err != nil {
-		return model.UpdateSubscriptionParams{}, errors.New(invalidUserIDError)
+	price := current.Price
+	if req.Price != nil {
+		if *req.Price <= 0 {
+			return model.UpdateSubscriptionParams{}, errors.New("price must be greater than zero")
+		}
 	}
 
-	startDate, err := parseMonthYear(req.StartDate)
-	if err != nil {
-		return model.UpdateSubscriptionParams{}, errors.New("invalid start_date, expected format MM-YYYY")
+	userID := current.UserID
+	if req.UserID != nil {
+		parsedUserID, err := uuid.Parse(*req.UserID)
+		if err != nil {
+			return model.UpdateSubscriptionParams{}, errors.New(invalidUserIDError)
+		}
+
+		userID = parsedUserID
 	}
 
-	endDateValue, hasEndDate, err := parseOptionalMonthYear(req.EndDate)
-	if err != nil {
-		return model.UpdateSubscriptionParams{}, errors.New("invalid end_date, expected format MM-YYYY")
+	startDate := current.StartDate
+	if req.StartDate != nil {
+		parsedStartDate, err := parseMonthYear(*req.StartDate)
+		if err != nil {
+			return model.UpdateSubscriptionParams{}, errors.New("invalid start_date, expected format MM-YYYY")
+		}
+
+		startDate = parsedStartDate
 	}
 
-	var endDate *time.Time
-	if hasEndDate {
-		endDate = &endDateValue
+	endDate := current.EndDate
+	if req.EndDate != nil {
+		if strings.TrimSpace(*req.EndDate) != "" {
+			endDate = nil
+		} else {
+			parsedEndDate, err := parseMonthYear(*req.EndDate)
+			if err != nil {
+				return model.UpdateSubscriptionParams{}, errors.New("invalid end_date, expected format MM-YYYY")
+			}
+
+			endDate = &parsedEndDate
+		}
 	}
 
 	if endDate != nil && endDate.Before(startDate) {
@@ -530,11 +578,19 @@ func buildUpdateSubscriptionParams(
 	return model.UpdateSubscriptionParams{
 		ID:          id,
 		ServiceName: serviceName,
-		Price:       req.Price,
+		Price:       price,
 		UserID:      userID,
 		StartDate:   startDate,
 		EndDate:     endDate,
 	}, nil
+}
+
+func hasUpdatedFields(req UpdateSubscriptionRequest) bool {
+	return req.ServiceName != nil ||
+		req.Price != nil ||
+		req.UserID != nil ||
+		req.StartDate != nil ||
+		req.EndDate != nil
 }
 
 func parseID(rawID string) (int64, error) {
