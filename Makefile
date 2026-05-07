@@ -36,7 +36,7 @@ ping:
 
 dev:
 	docker compose up -d postgres
-	sleep 5
+	sleep 1
 	goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable" up
 	air -c .air.toml
 
