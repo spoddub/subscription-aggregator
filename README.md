@@ -13,19 +13,22 @@ The service works with monthly subscriptions. Dates are passed in `MM-YYYY` form
 ## Features
 
 - Create subscription records
-- List all subscriptions
+- List subscriptions with pagination
+- Filter subscription list by `user_id` and `service_name`
 - Get subscription by id
-- Update subscription by id
+- Partially update subscription by id
 - Delete subscription by id
 - Calculate total cost for a selected period
 - Optional filtering by `user_id`
 - Optional filtering by `service_name`
 - PostgreSQL storage
 - Database migrations with goose
-- Request validation for UUID, price and date format
-- Unit tests for date parsing and request validation
+- Request validation for UUID, price, pagination params and date format
+- Unit tests for date parsing, pagination params and request validation
 - Swagger API documentation
 - Structured application logs with `slog`
+- Graceful shutdown on `SIGINT` and `SIGTERM`
+- Repository interface between handlers and storage implementation
 - Local development with Docker Compose
 - Full Docker run with app and PostgreSQL
 - Makefile commands for common development tasks
@@ -97,10 +100,10 @@ make swagger
 
 ### Subscriptions
 
-- `GET /api/subscriptions` - list subscriptions
+- `GET /api/subscriptions` - list subscriptions with pagination and optional filters
 - `POST /api/subscriptions` - create a subscription
 - `GET /api/subscriptions/:id` - get subscription by id
-- `PUT /api/subscriptions/:id` - update subscription by id
+- `PUT /api/subscriptions/:id` - partially update subscription by id
 - `DELETE /api/subscriptions/:id` - delete subscription by id
 - `GET /api/subscriptions/total` - calculate total cost for a selected period
 
@@ -175,8 +178,29 @@ curl -X POST http://localhost:8080/api/subscriptions \
 
 ## List subscriptions
 
+Endpoint:
+
+```text
+GET /api/subscriptions
+```
+
+Optional query parameters:
+
+- `limit` - number of records to return, default `20`, max `100`
+- `offset` - number of records to skip, default `0`
+- `user_id` - filter by user UUID
+- `service_name` - filter by subscription name
+
+Example:
+
 ```bash
-curl http://localhost:8080/api/subscriptions
+curl "http://localhost:8080/api/subscriptions?limit=10&offset=0"
+```
+
+Example with filters:
+
+```bash
+curl "http://localhost:8080/api/subscriptions?limit=10&offset=0&service_name=Yandex%20Plus"
 ```
 
 Example response:
@@ -193,7 +217,10 @@ Example response:
       "created_at": "2026-04-29T18:32:00Z",
       "updated_at": "2026-04-29T18:32:00Z"
     }
-  ]
+  ],
+  "limit": 10,
+  "offset": 0,
+  "count": 1
 }
 ```
 
@@ -223,15 +250,38 @@ Example response:
 
 ## Update subscription
 
+`PUT /api/subscriptions/:id` supports partial updates.  
+Only provided fields are changed.
+
+Update only price:
+
+```bash
+curl -X PUT http://localhost:8080/api/subscriptions/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "price": 500
+  }'
+```
+
+Update several fields:
+
 ```bash
 curl -X PUT http://localhost:8080/api/subscriptions/1 \
   -H "Content-Type: application/json" \
   -d '{
     "service_name": "Yandex Plus",
     "price": 500,
-    "user_id": "60601fee-2bf1-4721-ae6f-7636e79a0cba",
-    "start_date": "07-2025",
     "end_date": "12-2025"
+  }'
+```
+
+Clear `end_date`:
+
+```bash
+curl -X PUT http://localhost:8080/api/subscriptions/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "end_date": ""
   }'
 ```
 
@@ -370,6 +420,30 @@ Invalid period:
 ```json
 {
   "error": "from must be before or equal to to"
+}
+```
+
+Invalid limit:
+
+```json
+{
+  "error": "limit must be less than or equal to 100"
+}
+```
+
+Invalid offset:
+
+```json
+{
+  "error": "offset must be greater than or equal to zero"
+}
+```
+
+Empty update request:
+
+```json
+{
+  "error": "at least one field is required"
 }
 ```
 
@@ -734,7 +808,7 @@ Runs:
 
 ```text
 docker compose up -d postgres
-sleep 5
+sleep 1
 goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable" up
 go run ./cmd/subscription-aggregator
 ```
@@ -757,7 +831,7 @@ Runs:
 
 ```text
 docker compose up -d postgres
-sleep 5
+sleep 1
 goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/subscription_aggregator?sslmode=disable" up
 air -c .air.toml
 ```
