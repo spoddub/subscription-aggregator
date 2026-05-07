@@ -1,8 +1,12 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "REST API service for managing online subscriptions and calculating total subscription cost for selected periods.",
+        "title": "Subscription Aggregator API",
+        "contact": {},
+        "version": "1.0"
     },
+    "host": "localhost:8080",
     "paths": {
         "/api/subscriptions": {
             "get": {
