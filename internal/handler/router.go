@@ -10,7 +10,7 @@ import (
 )
 
 type Handler struct {
-	repo   *repository.SubscriptionRepository
+	repo   SubscriptionRepository
 	logger *slog.Logger
 }
 
