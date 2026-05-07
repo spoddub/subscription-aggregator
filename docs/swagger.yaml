@@ -231,7 +231,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Updates subscription by id.
+      description: Partially updates subscription by id. Only provided fields are
+        changed.
       parameters:
       - description: Subscription id
         in: path

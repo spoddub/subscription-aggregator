@@ -224,7 +224,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Updates subscription by id.",
+                "description": "Partially updates subscription by id. Only provided fields are changed.",
                 "consumes": [
                     "application/json"
                 ],
