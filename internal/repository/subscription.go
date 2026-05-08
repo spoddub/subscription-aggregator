@@ -179,7 +179,7 @@ func (r *SubscriptionRepository) Delete(ctx context.Context, id int64) error {
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("not found: %w", err)
+		return model.ErrNotFound
 	}
 
 	return nil
