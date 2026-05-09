@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"errors"
+	"os"
+)
 
 type Config struct {
 	Port        string
@@ -8,10 +11,15 @@ type Config struct {
 	LogLevel    string
 }
 
-func Load() Config {
+func Load() (Config, error) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
+	}
+
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return Config{}, errors.New("DATABASE_URL is required")
 	}
 
 	logLevel := os.Getenv("LOG_LEVEL")
@@ -21,7 +29,7 @@ func Load() Config {
 
 	return Config{
 		Port:        port,
-		DatabaseURL: os.Getenv("DATABASE_URL"),
+		DatabaseURL: databaseURL,
 		LogLevel:    logLevel,
-	}
+	}, nil
 }
