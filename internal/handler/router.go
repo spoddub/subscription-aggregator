@@ -4,7 +4,6 @@ import (
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spoddub/subscription-aggregator/internal/repository"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -18,7 +17,7 @@ type HealthResponse struct {
 	Status string `json:"status" example:"ok"`
 }
 
-func NewRouter(repo *repository.SubscriptionRepository, appLogger *slog.Logger) *gin.Engine {
+func NewRouter(repo SubscriptionRepository, appLogger *slog.Logger) *gin.Engine {
 	r := gin.Default()
 	if err := r.SetTrustedProxies(nil); err != nil {
 		panic(err)
