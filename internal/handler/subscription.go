@@ -652,7 +652,7 @@ func toSubscriptionResponse(subscription model.Subscription) SubscriptionRespons
 
 func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, HealthResponse{
-		Status: "pong",
+		Status: "ok",
 	})
 }
 
